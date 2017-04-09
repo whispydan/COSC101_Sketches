@@ -1,5 +1,32 @@
+//Group 29: Dan Andrews, Sean Coffey and Grant Brown
+//Date: 09/04/2017
+//Description: Our groups implementation of the Asteroids game
+// - Basic player ship movement
+// - Collision Detection
+// - High Scores stored in a text file
+// - Sound and Background music
+// - Alien ship with with basic AI
+// - Debris after collisions
+// - Player temporary invincibility after respawn
+// 
+//Dependancies: 
+// - Requires Minim library installed for audio
+//    From within Processing, on the taskbar, open 'Sketch' > 'Import Library...' >'Add Library...' > Search for 'Minim' and 'install' it
+// - Requires audio files to be installed into the data folder of this project
+//    
+//Controls:
+// - Arrow Keys: up and down to move the ship, left and right to rotate the ship
+// - Space: fire the ships cannon
+// - p: pause the game
+// - s: sounds on/off
+
 import java.util.*;
 import java.io.*;
+import ddf.minim.*;
+AudioPlayer bgMusic, shipLaser, shipExplosion, alienExplosion, alienFire, alienAppear, shipThrust3, asteroidExplode;
+Minim minim;
+int blinkTime;
+boolean blinkOn;
 int time; //Variable to hold point in time in ms
 int tempInvincibility = 3000; //Variable to hold invincibility time in ms after collision
 boolean isInvincible; //Variable to hold invincibilty status
@@ -34,9 +61,27 @@ int highScore = 0; //Variable stores wether a high Score has been achieved
 String playerName = ""; //Variable stores the players name
 int pauseInt = 0; //Variable to determine if game is paused
 int howQuick = 1000; //Variable to determine how quick the enemy alien ship spawns for each level
+boolean sound = true; //Sound on/off boolean if the files don't exist
+boolean sKey = true; //Sound on/off switch skey
 
 void setup() {
-  size(900, 900);  //Initilise screen size (adjustable based on the size of the game you want to play
+  size(600, 600);  //Initilise screen size (adjustable based on the size of the game you want to play
+  minim = new Minim(this);
+  try { //Test if sound files exist, if not don't play sound
+    dataPath("blazeWitch.wav");
+    bgMusic = minim.loadFile("witch.mp3");
+    shipLaser = minim.loadFile("shipLaser.wav");
+    shipExplosion = minim.loadFile("shipExplosion.wav");
+    alienExplosion = minim.loadFile("alienExplosion.wav");
+    alienFire = minim.loadFile("alienFire.wav");
+    alienAppear = minim.loadFile("alienAppear.wav");
+    asteroidExplode = minim.loadFile("asteroidExplode.wav");  
+    bgMusic.loop();
+  } catch(NullPointerException e) {
+    sound = false; //Don't play sound as the files arn't there
+  }
+  blinkTime = millis();
+  blinkOn = true;
   isInvincible = false; //Initialise isInvincible to be false at setup
   time = 0; //Initialise time to zero at setup
   shipX = width/2; //Ship always starts in the middle no matter the screen size
@@ -155,6 +200,10 @@ void draw() {
       }
       if ((frameCount + alienFrames) % 2000 == 0 && frameCount > alienFrames + howQuick) { //Create the alien space ship
         aliens.add(new Alien(width+10, height/2 - 150, radians(270)));
+        if(sound && sKey) {
+          alienAppear.rewind();
+          alienAppear.play();
+        }
       }
       if (aliens.size() > 0) { //If there is an alien ship
         if (aliens.get(0).getX() < 0) { //If that alien ship has passed the left side of screen
@@ -172,7 +221,6 @@ void draw() {
           alienCannon.get(i).fire(); //Make each bullet move
           //If the bullet is outside screen proportions remove it
           if (alienCannon.get(i).getX() > width || alienCannon.get(i).getX() < 0 || alienCannon.get(i).getY() > height || alienCannon.get(i).getY() < 0) {
-            println("removed bullet");
             alienCannon.remove(i);
           }
         }
@@ -211,7 +259,7 @@ void invincibilityTimer() {
 }
 
 /**
- This function checks for cannon bullet collission with asteroids and the alien ship.
+ This function checks for cannon bullet collission with asteroids.
  **/
 void cannonCollision() { 
   float cX = 0; //stores cannon X
@@ -219,20 +267,24 @@ void cannonCollision() {
   float aX = 0; //stores asteroid x
   float aY = 0; //stores asteroid y
   
-  if(aliens.size() > 0){ //Check to see if there are any alien ships     
+  if(aliens.size() > 0){ //Check to see if there are any aliens     
     for(int i = 0; i < cannons.size(); i++ ){ //for loop, loops through each cannon bullet
-    cX = cannons.get(i).getX(); //Store the X value of the current bullet in a variable
-    cY = cannons.get(i).getY(); //Store the Y value of the current bullet in a variable
-    for(int j = 0; j < aliens.size(); j++){    //for loop, loops through all alien ships  
-    float aliensX = aliens.get(j).getX(); //Store the X value of the current alien ship in a variable
-    float aliensY = aliens.get(j).getY(); //Store the Y value of the current alien ship in a variable
+    cX = cannons.get(i).getX(); 
+    cY = cannons.get(i).getY();
+      for(int j = 0; j < aliens.size(); j++){    //for loop, loops through all aliens  
+      float aliensX = aliens.get(j).getX(); //Store the X value of the alien ship in a variable
+      float aliensY = aliens.get(j).getY(); //Store the Y value of the alien ship in a variable
     
-      if(cX <= aliensX + 12.5 && cX >= aliensX - 12.5 && cY <= aliensY + 11 && cY >= aliensY - 11){
-        aliens.remove(j); //remove the alien ship that was hit
-        cannons.remove(i); //remove the bullet that hit the alien ship
-        shipFrames = frameCount; //set frames to intercept frame
-        sDebris = new ShipDebris(aliensX, aliensY); //Create new ship debris in alien ships position when intersect occurs
-        score += 75; //increase score
+        if(cX <= aliensX + 12.5 && cX >= aliensX - 12.5 && cY <= aliensY + 11 && cY >= aliensY - 11){
+          aliens.remove(j); //remove the alien ship that was hit
+          cannons.remove(i); //remove the bullet that hit the alien ship
+          shipFrames = frameCount; //set frames to intercept frame
+          sDebris = new ShipDebris(aliensX, aliensY); //Create new ship debris in position that the ship crashed
+          score += 75; //increase score
+          if(sound && sKey) {
+            alienExplosion.rewind();
+            alienExplosion.play();
+          }
         }
       }
     }
@@ -254,6 +306,10 @@ void cannonCollision() {
           asteroids.remove(i); //remove the Asteroid that collided
           cannons.remove(j); //Remove the Cannon that collided
           score += 10; //Increment the score by 10 for a large asteroid
+          if(sound && sKey) {
+            asteroidExplode.rewind();
+            asteroidExplode.play();
+          }
           break; //break from for loop after that bullet is removed no point checking against rest of the asteroids.
         } else if (asteroids.get(i).getSize() == 30) { //If the asteroid that is shot is a medium one create two small ones at asteroids current x/y
           debrisFrames = frameCount; //Assign current frame count to debrisFrame for animation control
@@ -262,6 +318,10 @@ void cannonCollision() {
           }
           asteroidCreate(2, asteroidSize/4, aX, aY); 
           score += 25; //Increment the score by 25 for a medium asteroid
+          if(sound && sKey) {
+            asteroidExplode.rewind();
+            asteroidExplode.play();
+          }
           asteroids.remove(i); //remove the Asteroid that collided
           cannons.remove(j); //Remove the Cannon that collided
           break; //break from for loop after that bullet is removed no point checking against rest of the asteroids.
@@ -271,6 +331,10 @@ void cannonCollision() {
             debris.add(new Asteroid(aX + random(0, 15), aY + random(0, 15), random(-0.25, 0.25), 1));
           }
           score += 50; //Increment the score by 50 for a small asteroid
+          if(sound && sKey) {
+            asteroidExplode.rewind();
+            asteroidExplode.play();      
+          }
           asteroids.remove(i); //remove the Asteroid that collided
           cannons.remove(j); //Remove the Cannon that collided
           break; //break from for loop after that bullet is removed no point checking against rest of the asteroids.
@@ -286,7 +350,7 @@ void cannonCollision() {
 void shipCollision() {
   invincibilityTimer(); //Check for invincibility
   if (!isInvincible) {
-    if(aliens.size() > 0){ //Check to see if there are any alien ships      
+    if(aliens.size() > 0){ //Check to see if the national guard has been called      
       for(int i = 0; i < aliens.size(); i++){ //For every alien that exists      
       float aliensX = aliens.get(i).getX(); //Store the X value of the alien ship in a variable
       float aliensY = aliens.get(i).getY(); //Store the Y value of the alien ship in a variable
@@ -298,6 +362,10 @@ void shipCollision() {
           lives--; //Reduce the amount of ships remaining by one
           time = millis(); //Set point in time equal to elapsed time at point of collision
           isInvincible = true; //Set invincibility to true
+          if(sound && sKey) {
+            shipExplosion.rewind();
+            shipExplosion.play();
+          }
         }
       }
       for(int j = 0; j < alienCannon.size(); j++){ //For every alien bullet (j used to prevent confusion, or add to it)
@@ -311,7 +379,11 @@ void shipCollision() {
           cannons.clear(); //Remove all cannon bullets after ship crash
           lives--; //Reduce the amount of ships remaining by one
           time = millis(); //Set point in time equal to elapsed time at point of collision
-          isInvincible = true; //Set invincibility to true            
+          isInvincible = true; //Set invincibility to true
+          if(sound && sKey) {
+            shipExplosion.rewind();
+            shipExplosion.play();
+          }
         }
       }
     }
@@ -353,6 +425,10 @@ void shipCollision() {
         lives--; //Reduce the amount of ships remaining by one
         time = millis(); //Set point in time equal to elapsed time at point of collision
         isInvincible = true; //Set invincibility to true
+        if(sound && sKey) {
+          shipExplosion.rewind();
+          shipExplosion.play();  
+        }
       }
     }
   }
@@ -418,8 +494,15 @@ void gameOver() {
   maxSpeed = 1; //Reset maxSpeed of asteroids
   if (highScore == 1) { //If user achieved a high score display HIGH SCORE!! flashing
     textSize(45);
-    if (frameCount % 2 == 0) { //Display every second frame to create flashing effect
+//    if (frameCount % 4 == 0) { //Display every second frame to create flashing effect
+//      text("HIGH SCORE!!", width/2, 385);
+//    }
+    if(blinkOn){
       text("HIGH SCORE!!", width/2, 385);
+    }
+    if(millis() - 500 > blinkTime){
+      blinkTime = millis();
+      blinkOn = !blinkOn;
     }
   }
   while (score > 0) { //While loop to check for high scores, reset once high score added
@@ -534,13 +617,21 @@ void keyPressed() {
     start = 3; //Back to gameplay
     pauseInt = 0; //Game not paused
   }
+  //Use s key to turn master volume on/off
+  if(key == 's' && sKey && sound && start != 1) { //Won't work on playerName menu
+    sKey = false;
+    bgMusic.pause();
+  } else if(key == 's' && !sKey && sound && start != 1) {//Won't work on playerName menu
+    sKey = true;
+    bgMusic.loop();
+  }
 }
 
 /**
  Function checks for key releases
  **/
 void keyReleased() {
-  buttonPressed[keyCode] = false; //Asign false to the key when the key is released
+  buttonPressed[keyCode] = false; //Assign false to the key when the key is released
 }
 
 /**
@@ -548,6 +639,10 @@ void keyReleased() {
  **/
 void shoot() {
   if (buttonPressed[' '] && frameCount - frames > 15 && lives > 0) { //If the space key is pressed and it has been more than 15 frames (i.e fire rate) do this
+    if(sound && sKey) {
+      shipLaser.rewind();
+      shipLaser.play();
+    }
     frames = frameCount; //Stores the current frameCount
     cannons.add(new Cannon(shipX, shipY, shipAngle + radians(90), 1)); //Create new cannon object
     for (int i = 0; i < cannons.size(); i++) { //For loop to display each cannon object
@@ -645,7 +740,18 @@ void ship() {
   translate(shipX, shipY); //Translate based of the ships tip x and y coordinate (to allow for rotation)
   rotate(shipAngle); //rotate based on the angle input from left or right arrow key
   //draw the new ship triangle
-  triangle (0, 5, -5, -10, +5, -10);
+  if(isInvincible){    
+    if(blinkOn){
+      triangle (0, 5, -5, -10, +5, -10);
+    }
+    if(isInvincible && millis() - 250 > blinkTime){
+      blinkTime = millis();
+      blinkOn = !blinkOn;      
+    }
+  }
+  if(!isInvincible){
+    triangle (0, 5, -5, -10, +5, -10);
+  }
   if (buttonPressed[UP]) {
     //Draw the ship flames out the tail (rocket engines)
     noStroke();
@@ -908,18 +1014,11 @@ class Alien {
     if (cannonTiming > width /10) { //Cannon fire rate is every 1/10 the width of the screen
       //Change the direction to fire the alien bullets based on which quadrant the alien ship is in
       //Fire at the opposite quadrant
-      if (y < height/2) {
-        if (x > width/2) {
-          alienCannon.add(new Cannon(x, y, radians(110), 4));
-        } else {
-          alienCannon.add(new Cannon(x, y, radians(60), 4));
-        }
-      } else {
-        if (x > width/2) {
-          alienCannon.add(new Cannon(x, y, -radians(110), 4));
-        } else {
-          alienCannon.add(new Cannon(x, y, -radians(60), 4));
-        }
+      float angle = atan2(shipY - y, shipX - x); //Find the angle between Ship and Alien Ship, store it in a variable
+      alienCannon.add(new Cannon(x, y, angle, 4)); //Make the alien ship deadly
+      if(sound && sKey) {
+        alienFire.rewind();
+        alienFire.play();  
       }
       cannonTiming = 0; //Reset the distance variable
     }
